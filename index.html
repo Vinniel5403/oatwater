@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FunkEdit — Big Head</title>
+<title>น้ำแม่ไอโอ้ต</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;700&display=swap" rel="stylesheet">
@@ -45,6 +45,7 @@
   header h1 { margin: 0; font-size: 24px; letter-spacing: -0.02em; }
   header h1 span { color: var(--accent); }
   header p { margin: 0; color: var(--muted); font-size: 14px; }
+  header a { color: #fff; }
 
   main {
     display: grid;
@@ -157,8 +158,9 @@
 </head>
 <body>
 <header>
-  <h1>Funk<span>Edit</span></h1>
-  <p>ตัดหัว (หน้า + ผม) แปะทับแบบขยาย ให้เด้งตามเพลง</p>
+  <h1>น้ำแม่<span>ไอโอ้ต</span></h1>
+  เว็บไซต์โดย <a href="https://gawintep.in.th" target="_blank" rel="noopener noreferrer">กวินเทพ</a> ·
+  เพลงFunkโดย <a href="https://www.tiktok.com/@dj_jat_thailand" target="_blank" rel="noopener noreferrer">DJ JAT</a>
 </header>
 
 <main>
@@ -172,6 +174,7 @@
   </section>
 
   <aside id="panel">
+    <div id="settings" hidden>
     <div class="group-title">หัว</div>
 
     <div class="field">
@@ -226,7 +229,7 @@
 
     <div class="field anim">
       <label for="sens">ความไวจับบีต <output id="sensVal">5</output></label>
-      <input type="range" id="sens" min="1" max="10" step="1" value="5">
+      <input type="range" id="sens" min="1" max="10" step="1" value="10">
     </div>
 
     <div class="field anim">
@@ -242,6 +245,7 @@
     <div class="group-title">ส่งออก</div>
 
     <label class="toggle"><input type="checkbox" id="showMask"> แสดง mask ที่ตัด</label>
+    </div>
 
     <div class="btns">
       <button class="primary" id="record" disabled>อัดวิดีโอ</button>
@@ -623,8 +627,8 @@ function render() {
   const s = sMin + (sMax - sMin) * cur.headV;
   const sx = 1 + (parseFloat(ui.stretch.value) / 100) * cur.stretchV;
   const feather = parseFloat(ui.feather.value);
-  const anchorMode = document.querySelector("input[name=anchor]:checked").value;
-  const part = document.querySelector("input[name=part]:checked").value;
+  const anchorMode = document.querySelector("input[name=anchor]:checked")?.value ?? "center";
+  const part = document.querySelector("input[name=part]:checked")?.value ?? "head";
 
   // Body: stretch horizontally around the image center
   octx.save();
