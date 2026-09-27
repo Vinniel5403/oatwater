@@ -1,0 +1,882 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FunkEdit — Big Head</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f1ea;
+    --panel: #ffffff;
+    --ink: #1b1a17;
+    --muted: #6d6a62;
+    --line: #e2ddd1;
+    --accent: #ff5a1f;
+    --accent-ink: #ffffff;
+    --stage: #e9e4d8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141312;
+      --panel: #1e1d1b;
+      --ink: #f1ede4;
+      --muted: #9a958a;
+      --line: #33312d;
+      --accent: #ff6b35;
+      --accent-ink: #141312;
+      --stage: #0e0d0c;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "IBM Plex Sans Thai", system-ui, sans-serif;
+    min-height: 100vh;
+  }
+  header {
+    display: flex; align-items: baseline; gap: 12px;
+    padding: 20px 24px 8px;
+  }
+  header h1 { margin: 0; font-size: 24px; letter-spacing: -0.02em; }
+  header h1 span { color: var(--accent); }
+  header p { margin: 0; color: var(--muted); font-size: 14px; }
+
+  main {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 16px;
+    padding: 16px 24px 24px;
+  }
+  @media (max-width: 820px) {
+    main { grid-template-columns: 1fr; padding: 12px 16px 16px; }
+    header { padding: 16px 16px 4px; flex-direction: column; gap: 2px; }
+  }
+
+  .stage {
+    position: relative;
+    background: var(--stage);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    min-height: 60vh;
+    display: grid; place-items: center;
+    overflow: hidden;
+  }
+  .stage canvas {
+    max-width: 100%;
+    max-height: 80vh;
+    display: none;
+  }
+  .stage.has-image canvas { display: block; }
+  .stage.has-image .drop { display: none; }
+  .stage.dragover { outline: 3px dashed var(--accent); outline-offset: -10px; }
+
+  .drop {
+    text-align: center; padding: 32px; color: var(--muted);
+    cursor: pointer;
+  }
+  .drop strong { display: block; color: var(--ink); font-size: 18px; margin-bottom: 6px; }
+
+  .busy {
+    position: absolute; inset: 0;
+    display: none; place-items: center;
+    background: color-mix(in srgb, var(--stage) 70%, transparent);
+    font-weight: 500;
+  }
+  .stage.is-busy .busy { display: grid; }
+
+  aside {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px;
+    display: flex; flex-direction: column; gap: 16px;
+    align-self: start;
+  }
+  .group-title {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--muted);
+    border-top: 1px solid var(--line); padding-top: 14px; margin-top: 2px;
+  }
+  .group-title:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
+  .field label {
+    display: flex; justify-content: space-between;
+    font-size: 14px; font-weight: 500; margin-bottom: 8px;
+  }
+  .field label output { color: var(--accent); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+
+  .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .seg input { display: none; }
+  .seg label {
+    margin: 0; justify-content: center; padding: 8px; cursor: pointer;
+    font-weight: 500; color: var(--muted);
+  }
+  .seg input:checked + label { background: var(--ink); color: var(--bg); }
+
+  aside.no-anim .anim { opacity: 0.35; pointer-events: none; }
+  aside.music-on .time-only { opacity: 0.35; pointer-events: none; }
+  .toggle { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+  .toggle input { accent-color: var(--accent); width: 16px; height: 16px; }
+
+  button {
+    font: inherit; font-weight: 500;
+    border-radius: 10px; padding: 11px 14px;
+    border: 1px solid var(--line);
+    background: transparent; color: var(--ink);
+    cursor: pointer;
+    user-select: none; -webkit-user-select: none;
+    touch-action: none;
+  }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  button.recording { background: #d33; border-color: #d33; color: #fff; }
+  .btns { display: grid; gap: 8px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  .track {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; color: var(--muted);
+    min-width: 0;
+  }
+  .track span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .beat {
+    flex: none; width: 12px; height: 12px; border-radius: 50%;
+    background: var(--line);
+    transition: background 0.12s, transform 0.12s;
+  }
+  .beat.hit { background: var(--accent); transform: scale(1.5); transition: none; }
+
+  .status { font-size: 13px; color: var(--muted); min-height: 1.4em; line-height: 1.5; }
+  .status.err { color: #d33; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Funk<span>Edit</span></h1>
+  <p>ตัดหัว (หน้า + ผม) แปะทับแบบขยาย ให้เด้งตามเพลง</p>
+</header>
+
+<main>
+  <section class="stage" id="stage">
+    <div class="drop" id="drop">
+      <strong>ลากรูปมาวาง หรือคลิกเพื่อเลือกรูป</strong>
+      รูปคน เห็นหน้าชัด ๆ · ประมวลผลในเครื่อง ไม่อัปโหลดที่ไหน
+    </div>
+    <canvas id="out"></canvas>
+    <div class="busy" id="busy">กำลังตัดหัว…</div>
+  </section>
+
+  <aside id="panel">
+    <div class="group-title">หัว</div>
+
+    <div class="field">
+      <label for="scale">ขนาดใหญ่สุด <output id="scaleVal">1.25×</output></label>
+      <input type="range" id="scale" min="1" max="2" step="0.01" value="1.25">
+    </div>
+
+    <div class="field anim">
+      <label for="scaleMin">ขนาดเล็กสุด <output id="scaleMinVal">1.10×</output></label>
+      <input type="range" id="scaleMin" min="1" max="2" step="0.01" value="1.1">
+    </div>
+
+    <div class="field anim">
+      <label for="tilt">หมุนที่คอ ซ้าย-ขวา <output id="tiltVal">±12°</output></label>
+      <input type="range" id="tilt" min="0" max="35" step="1" value="12">
+    </div>
+
+ 
+
+    <div class="field">
+      <label>จุดยึดตอนขยาย</label>
+      <div class="seg">
+        <input type="radio" name="anchor" id="aNeck" value="neck"><label for="aNeck">คอ</label>
+        <input type="radio" name="anchor" id="aChin" value="chin"><label for="aChin">คาง</label>
+        <input type="radio" name="anchor" id="aCenter" value="center" checked><label for="aCenter">กลางหน้า</label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="feather">ขอบนุ่ม <output id="featherVal">3%</output></label>
+      <input type="range" id="feather" min="0" max="10" step="0.5" value="3">
+    </div>
+
+    <div class="group-title">ตัวรูป</div>
+
+    <div class="field anim">
+      <label for="stretch">ยืดแนวกว้าง <output id="stretchVal">+15%</output></label>
+      <input type="range" id="stretch" min="0" max="50" step="1" value="15">
+    </div>
+
+    <div class="group-title">จังหวะ</div>
+
+    <label class="toggle"><input type="checkbox" id="animate" checked> เล่นแอนิเมชัน</label>
+
+    <div class="btns anim">
+      <div class="row">
+        <button id="pickAudio">เลือกเพลง</button>
+        <button id="play" disabled>▶ เล่น</button>
+      </div>
+      <div class="track"><div class="beat" id="beat"></div><span id="trackName">ยังไม่มีเพลง · ใช้จังหวะตามเวลา</span></div>
+    </div>
+
+    <div class="field anim">
+      <label for="sens">ความไวจับบีต <output id="sensVal">5</output></label>
+      <input type="range" id="sens" min="1" max="10" step="1" value="5">
+    </div>
+
+    <div class="field anim">
+      <label for="delay">ดีเลย์ก่อนเริ่มขยับ <output id="delayVal">1.0 วิ</output></label>
+      <input type="range" id="delay" min="0" max="5" step="0.1" value="1">
+    </div>
+
+    <div class="field anim time-only">
+      <label for="period">จังหวะเด้ง (ไม่มีเพลง) <output id="periodVal">0.60 วิ/ครั้ง</output></label>
+      <input type="range" id="period" min="0.2" max="2" step="0.05" value="0.6">
+    </div>
+
+    <div class="group-title">ส่งออก</div>
+
+    <label class="toggle"><input type="checkbox" id="showMask"> แสดง mask ที่ตัด</label>
+
+    <div class="btns">
+      <button class="primary" id="record" disabled>อัดวิดีโอ</button>
+      <button id="download" disabled>ดาวน์โหลด PNG (ภาพนิ่ง)</button>
+      <button id="compare" disabled>กดค้างดูต้นฉบับ</button>
+      <button id="pick">เลือกรูปใหม่</button>
+    </div>
+
+    <div class="status" id="status">กำลังโหลดโมเดล…</div>
+  </aside>
+</main>
+
+<input type="file" id="file" accept="image/*" hidden>
+<input type="file" id="audioFile" accept="audio/*" hidden>
+<audio id="audio" preload="auto"></audio>
+
+<script type="module">
+import { FilesetResolver, ImageSegmenter, FaceLandmarker }
+  from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+const WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
+const SEG_MODEL = "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_multiclass_256x256/float32/latest/selfie_multiclass_256x256.tflite";
+const FACE_MODEL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+
+// selfie_multiclass classes: 0 bg, 1 hair, 2 body-skin, 3 face-skin, 4 clothes, 5 others (accessories)
+const HEAD_CLASSES = new Uint8Array(6);
+HEAD_CLASSES[1] = 1; HEAD_CLASSES[3] = 1; HEAD_CLASSES[5] = 1;
+const FACE_SKIN = 3;
+
+// FaceMesh face-oval contour, in order
+const OVAL = [10,338,297,332,284,251,389,356,454,323,361,288,397,365,379,378,400,377,
+              152,148,176,149,150,136,172,58,132,93,234,127,162,21,54,103,67,109];
+const CHIN = 152, NOSE = 1, FOREHEAD = 10;
+const NECK_DROP = 0.3; // neck pivot sits this fraction of forehead→chin length below the chin
+const MAX_SIDE = 2560;
+const DEFAULT_TRACK = "oat.mp3";
+
+const $ = (id) => document.getElementById(id);
+const stage = $("stage"), out = $("out"), octx = out.getContext("2d");
+const panel = $("panel"), statusEl = $("status");
+const ui = {
+  scale: $("scale"), scaleMin: $("scaleMin"), tilt: $("tilt"), stretch: $("stretch"),
+  period: $("period"), sens: $("sens"), delay: $("delay"), animate: $("animate"),
+  feather: $("feather"), showMask: $("showMask"),
+  download: $("download"), compare: $("compare"), record: $("record"),
+  play: $("play"), beat: $("beat"), trackName: $("trackName"),
+};
+const audio = $("audio");
+
+let segmenter, landmarker;
+let src = null;        // working-size canvas of the original
+let faces = [];        // per-face { rx, ry, rw, rh, masks: {face, head}, chin, neck, center, fw, layers }
+let showOriginal = false;
+
+function setStatus(msg, err = false) {
+  statusEl.textContent = msg;
+  statusEl.classList.toggle("err", err);
+}
+
+function makeCanvas(w, h) {
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  return c;
+}
+
+async function init() {
+  try {
+    const fileset = await FilesetResolver.forVisionTasks(WASM);
+    [segmenter, landmarker] = await Promise.all([
+      ImageSegmenter.createFromOptions(fileset, {
+        baseOptions: { modelAssetPath: SEG_MODEL, delegate: "CPU" },
+        runningMode: "IMAGE",
+        outputCategoryMask: true,
+        outputConfidenceMasks: false,
+      }),
+      FaceLandmarker.createFromOptions(fileset, {
+        baseOptions: { modelAssetPath: FACE_MODEL, delegate: "CPU" },
+        runningMode: "IMAGE",
+        numFaces: 6,
+      }),
+    ]);
+    setStatus("พร้อมแล้ว เลือกรูปได้เลย");
+  } catch (e) {
+    console.error(e);
+    setStatus("โหลดโมเดลไม่สำเร็จ: " + e.message, true);
+  }
+}
+
+// ---------- processing ----------
+
+async function loadFile(file) {
+  if (!file || !file.type.startsWith("image/")) return;
+  if (!segmenter || !landmarker) { setStatus("รอโมเดลโหลดเสร็จก่อนนะ", true); return; }
+
+  const img = await createImageBitmap(file);
+  const k = Math.min(1, MAX_SIDE / Math.max(img.width, img.height));
+  const W = Math.round(img.width * k), H = Math.round(img.height * k);
+  src = makeCanvas(W, H);
+  src.getContext("2d").drawImage(img, 0, 0, W, H);
+  img.close?.();
+
+  out.width = W; out.height = H;
+  stage.classList.add("has-image", "is-busy");
+  octx.drawImage(src, 0, 0);
+  setStatus("กำลังวิเคราะห์รูป…");
+  await new Promise(requestAnimationFrame); // let the busy overlay paint
+
+  try {
+    faces = analyze(src);
+  } catch (e) {
+    console.error(e);
+    faces = [];
+    setStatus("ประมวลผลไม่สำเร็จ: " + e.message, true);
+  }
+  stage.classList.remove("is-busy");
+
+  const ok = faces.length > 0;
+  ui.download.disabled = !ok;
+  ui.compare.disabled = !ok;
+  ui.record.disabled = !ok;
+  animStart = performance.now();
+  if (ok) setStatus(`เจอ ${faces.length} หน้า · ขนาดรูป ${W}×${H}px`);
+  if (ok && audio.src) startMusicFromTop();
+  else if (!statusEl.classList.contains("err")) setStatus("ไม่เจอหน้าในรูปนี้ ลองรูปที่เห็นหน้าชัดกว่านี้", true);
+  render();
+}
+
+function analyze(canvas) {
+  const W = canvas.width, H = canvas.height;
+
+  const seg = segmenter.segment(canvas);
+  const cm = seg.categoryMask;
+  const mw = cm.width, mh = cm.height;
+  const cat = new Uint8Array(cm.getAsUint8Array());
+  seg.close?.();
+
+  const det = landmarker.detect(canvas);
+  return det.faceLandmarks.map((lms) => buildFace(lms, W, H, cat, mw, mh));
+}
+
+function buildFace(lms, W, H, cat, mw, mh) {
+  const pts = lms.map((p) => [p.x * W, p.y * H]);
+  const oval = OVAL.map((i) => pts[i]);
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, cx = 0, cy = 0;
+  for (const [x, y] of oval) {
+    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+    cx += x; cy += y;
+  }
+  cx /= oval.length; cy /= oval.length;
+  const fw = maxX - minX, fh = maxY - minY;
+  const chin = pts[CHIN], top = pts[FOREHEAD];
+
+  // Neck pivot: continue the forehead→chin axis below the chin (follows head tilt in the photo)
+  const ax = chin[0] - top[0], ay = chin[1] - top[1];
+  const neck = [chin[0] + ax * NECK_DROP, chin[1] + ay * NECK_DROP];
+
+  // Search region around the head: wide enough for big hair, a little past the chin
+  const pad = Math.round(fw * 0.15) + 8;
+  const rx = Math.max(0, Math.floor(minX - fw * 0.75 - pad));
+  const ry = Math.max(0, Math.floor(minY - fh * 1.0 - pad));
+  const rx1 = Math.min(W, Math.ceil(maxX + fw * 0.75 + pad));
+  const ry1 = Math.min(H, Math.ceil(chin[1] + fh * 0.05 + pad));
+  const rw = rx1 - rx, rh = ry1 - ry;
+
+  // Face-oval polygon guarantees the face is included even where segmentation misses (beards, shadows)
+  const ovalC = makeCanvas(rw, rh);
+  const oc = ovalC.getContext("2d");
+  oc.beginPath();
+  oval.forEach(([x, y], i) => (i ? oc.lineTo(x - rx, y - ry) : oc.moveTo(x - rx, y - ry)));
+  oc.closePath();
+  oc.fill();
+  const ovalA = oc.getImageData(0, 0, rw, rh).data;
+
+  const sx = mw / W, sy = mh / H;
+  const nose = [Math.round(pts[NOSE][0] - rx), Math.round(pts[NOSE][1] - ry)];
+
+  function buildMask(test, cut) {
+    const bin = new Uint8Array(rw * rh);
+    for (let y = 0; y < rh && y <= cut; y++) {
+      const my = Math.min(mh - 1, ((y + ry) * sy) | 0) * mw;
+      for (let x = 0; x < rw; x++) {
+        const i = y * rw + x;
+        const c = cat[my + Math.min(mw - 1, ((x + rx) * sx) | 0)];
+        if (ovalA[i * 4 + 3] > 127 || test(c, x)) bin[i] = 1;
+      }
+    }
+    // Keep only the blob connected to this face, so neighbours' hair/faces are not grabbed
+    const keep = floodFrom(bin, rw, rh, nose[0], nose[1]);
+
+    const mask = makeCanvas(rw, rh);
+    const mctx = mask.getContext("2d");
+    const md = mctx.createImageData(rw, rh);
+    for (let i = 0; i < keep.length; i++) {
+      if (keep[i]) {
+        const j = i * 4;
+        md.data[j] = md.data[j + 1] = md.data[j + 2] = md.data[j + 3] = 255;
+      }
+    }
+    mctx.putImageData(md, 0, 0);
+    return mask;
+  }
+
+  const masks = {
+    // Face only: face skin (incl. ears) down to just below the chin
+    face: buildMask((c) => c === FACE_SKIN, chin[1] + fh * 0.03 - ry),
+    // Face + hair + accessories, cut just below the chin (no neck/body)
+    head: buildMask((c) => HEAD_CLASSES[c], chin[1] + fh * 0.03 - ry),
+  };
+
+  return { rx, ry, rw, rh, masks, chin, neck, center: [cx, cy], fw, layers: {} };
+}
+
+function floodFrom(bin, w, h, sx, sy) {
+  const keep = new Uint8Array(w * h);
+  sx = Math.max(0, Math.min(w - 1, sx));
+  sy = Math.max(0, Math.min(h - 1, sy));
+  const start = sy * w + sx;
+  if (!bin[start]) return bin; // should not happen (nose is inside the oval); fall back to everything
+  const q = new Int32Array(w * h);
+  let head = 0, tail = 0;
+  q[tail++] = start; keep[start] = 1;
+  while (head < tail) {
+    const i = q[head++];
+    const x = i % w;
+    if (x > 0 && bin[i - 1] && !keep[i - 1]) { keep[i - 1] = 1; q[tail++] = i - 1; }
+    if (x < w - 1 && bin[i + 1] && !keep[i + 1]) { keep[i + 1] = 1; q[tail++] = i + 1; }
+    if (i >= w && bin[i - w] && !keep[i - w]) { keep[i - w] = 1; q[tail++] = i - w; }
+    if (i < w * (h - 1) && bin[i + w] && !keep[i + w]) { keep[i + w] = 1; q[tail++] = i + w; }
+  }
+  return keep;
+}
+
+// Cut-out with feathered alpha, cached per part + feather value
+function headLayer(face, part, featherPct) {
+  const key = part + ":" + featherPct;
+  if (face.layers[key]) return face.layers[key];
+  const { rx, ry, rw, rh } = face;
+  const blurPx = (featherPct / 100) * face.fw;
+
+  const soft = makeCanvas(rw, rh);
+  const sctx = soft.getContext("2d");
+  if (blurPx > 0 && "filter" in sctx) sctx.filter = `blur(${blurPx.toFixed(1)}px)`;
+  sctx.drawImage(face.masks[part], 0, 0);
+
+  const layer = makeCanvas(rw, rh);
+  const lctx = layer.getContext("2d");
+  lctx.drawImage(src, rx, ry, rw, rh, 0, 0, rw, rh);
+  lctx.globalCompositeOperation = "destination-in";
+  lctx.drawImage(soft, 0, 0);
+
+  face.layers[key] = layer;
+  return layer;
+}
+
+// ---------- music / beat detection ----------
+
+let actx = null, analyser = null, freq = null, recDest = null;
+const energyHist = [];
+let lastBeat = 0, kick = 0;
+
+function ensureAudioGraph() {
+  if (actx) return;
+  actx = new AudioContext();
+  const srcNode = actx.createMediaElementSource(audio);
+  analyser = actx.createAnalyser();
+  analyser.fftSize = 1024;
+  analyser.smoothingTimeConstant = 0;
+  freq = new Uint8Array(analyser.frequencyBinCount);
+  recDest = actx.createMediaStreamDestination();
+  srcNode.connect(analyser);
+  srcNode.connect(actx.destination);
+  srcNode.connect(recDest);
+}
+
+const musicOn = () => actx && !audio.paused;
+
+// Bass-energy onset: a beat is a jump well above the recent average in the ~40–160 Hz band
+function detectBeat(now) {
+  analyser.getByteFrequencyData(freq);
+  const binHz = actx.sampleRate / analyser.fftSize;
+  const lo = Math.max(1, Math.round(40 / binHz));
+  const hi = Math.max(lo + 1, Math.round(160 / binHz));
+  let e = 0;
+  for (let i = lo; i <= hi; i++) e += freq[i];
+  e /= (hi - lo + 1) * 255;
+
+  const avg = energyHist.length ? energyHist.reduce((a, b) => a + b, 0) / energyHist.length : e;
+  energyHist.push(e);
+  if (energyHist.length > 45) energyHist.shift();
+
+  const threshold = 1.6 - parseFloat(ui.sens.value) * 0.05;
+  if (e > avg * threshold && e > 0.2 && now - lastBeat > 230) {
+    lastBeat = now;
+    return true;
+  }
+  return false;
+}
+
+function flashBeat() {
+  ui.beat.classList.add("hit");
+  setTimeout(() => ui.beat.classList.remove("hit"), 90);
+}
+
+// ---------- motion ----------
+
+let animStart = performance.now();
+let lastNow = performance.now();
+let pulse = 0, side = 1;
+// headV: 0 = smallest head, 1 = biggest. stretchV: 0 = normal width, 1 = full stretch.
+let cur = { headV: 1, stretchV: 0, angle: 0 };
+
+function motion(now) {
+  const dt = Math.min(0.1, (now - lastNow) / 1000);
+  lastNow = now;
+  if (!ui.animate.checked) return { headV: 1, stretchV: 0, angle: 0 };
+  const tilt = parseFloat(ui.tilt.value) * Math.PI / 180;
+
+  const delay = parseFloat(ui.delay.value);
+  const REST = { headV: 0, stretchV: 0, angle: 0 };
+
+  if (musicOn()) {
+    // Keep listening during the delay so the energy average is warmed up when motion starts
+    const beat = detectBeat(now);
+    if (audio.currentTime < delay) { kick = pulse = 0; return REST; }
+    // Beat: kick to 1 then decay; tilt flips side every beat
+    if (beat) { kick = 1; side = -side; flashBeat(); }
+    kick *= Math.exp(-dt / 0.28);
+    pulse += (kick - pulse) * Math.min(1, dt / 0.035);
+    return { headV: pulse, stretchV: pulse, angle: tilt * side * pulse };
+  }
+
+  // No music: one bounce = small -> big -> small; tilt goes left on one bounce, right on the next
+  const t = (now - animStart) / 1000 - delay;
+  if (t < 0) return REST;
+  const p = t / parseFloat(ui.period.value);
+  const v = 0.5 - 0.5 * Math.cos(2 * Math.PI * p);
+  return { headV: v, stretchV: v, angle: tilt * Math.sin(Math.PI * p) };
+}
+
+// ---------- rendering ----------
+
+function render() {
+  if (!src) return;
+  const W = out.width;
+  octx.setTransform(1, 0, 0, 1, 0, 0);
+  octx.clearRect(0, 0, W, out.height);
+  if (showOriginal) { octx.drawImage(src, 0, 0); return; }
+
+  const sMax = parseFloat(ui.scale.value);
+  const sMin = parseFloat(ui.scaleMin.value);
+  const s = sMin + (sMax - sMin) * cur.headV;
+  const sx = 1 + (parseFloat(ui.stretch.value) / 100) * cur.stretchV;
+  const feather = parseFloat(ui.feather.value);
+  const anchorMode = document.querySelector("input[name=anchor]:checked").value;
+  const part = document.querySelector("input[name=part]:checked").value;
+
+  // Body: stretch horizontally around the image center
+  octx.save();
+  octx.translate(W / 2, 0);
+  octx.scale(sx, 1);
+  octx.translate(-W / 2, 0);
+  octx.drawImage(src, 0, 0);
+  octx.restore();
+
+  for (const f of faces) {
+    const layer = headLayer(f, part, feather);
+    const [nx, ny] = f.neck;
+    const [ax, ay] = anchorMode === "neck" ? f.neck : anchorMode === "chin" ? f.chin : f.center;
+    // Head is not stretched, only moved so its neck stays on the stretched body's neck
+    const dx = (W / 2 + (nx - W / 2) * sx) - nx;
+
+    octx.save();
+    octx.translate(dx, 0);
+    octx.translate(nx, ny);   // rotate around the neck
+    octx.rotate(cur.angle);
+    octx.translate(-nx, -ny);
+    octx.translate(ax, ay);   // scale around the chosen anchor
+    octx.scale(s, s);
+    octx.translate(-ax, -ay);
+    octx.drawImage(layer, f.rx, f.ry);
+    octx.restore();
+  }
+
+  if (ui.showMask.checked) {
+    octx.save();
+    octx.globalAlpha = 0.45;
+    for (const f of faces) {
+      const tint = makeCanvas(f.rw, f.rh);
+      const t = tint.getContext("2d");
+      t.drawImage(f.masks[part], 0, 0);
+      t.globalCompositeOperation = "source-in";
+      t.fillStyle = "#ff2d55";
+      t.fillRect(0, 0, f.rw, f.rh);
+      octx.drawImage(tint, f.rx, f.ry);
+      t.globalCompositeOperation = "source-over";
+    }
+    octx.fillStyle = "#00c2ff";
+    for (const f of faces) {
+      octx.beginPath();
+      octx.arc(f.neck[0], f.neck[1], Math.max(4, f.fw * 0.03), 0, Math.PI * 2);
+      octx.fill();
+    }
+    octx.restore();
+  }
+}
+
+function tick(now) {
+  cur = motion(now);
+  if (faces.length && (ui.animate.checked || showOriginal)) render();
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// ---------- music UI ----------
+
+const audioInput = $("audioFile");
+$("pickAudio").addEventListener("click", () => audioInput.click());
+audioInput.addEventListener("change", () => {
+  const file = audioInput.files[0];
+  audioInput.value = "";
+  if (!file) return;
+  ensureAudioGraph();
+  setTrack(URL.createObjectURL(file), file.name);
+  playAudio();
+});
+
+function setTrack(url, name) {
+  if (audio.src.startsWith("blob:")) URL.revokeObjectURL(audio.src);
+  audio.src = url;
+  ui.trackName.textContent = name;
+  ui.play.disabled = false;
+}
+
+// Song that sits next to this html. Loaded as a blob so the analyser can read it
+// (a direct file:// src gives Web Audio silence). fetch() fails on file://, which needs a local server.
+async function loadDefaultTrack() {
+  try {
+    const res = await fetch(DEFAULT_TRACK);
+    if (!res.ok) throw new Error(res.status);
+    setTrack(URL.createObjectURL(await res.blob()), DEFAULT_TRACK);
+  } catch {
+    if (location.protocol === "file:") {
+      ui.trackName.textContent = `โหลด ${DEFAULT_TRACK} อัตโนมัติไม่ได้ (เปิดแบบ file://) · กดเลือกเพลงเอง`;
+    }
+  }
+}
+
+// Browsers only allow sound after a user gesture. Try right away; if blocked, the next tap/click/key starts it.
+let pendingPlay = false;
+async function startMusicFromTop() {
+  audio.currentTime = 0;
+  if (!(await playAudio(true))) {
+    pendingPlay = true;
+    setStatus("แตะที่ไหนก็ได้บนหน้าเพื่อเริ่มเพลง");
+  }
+}
+["pointerdown", "keydown", "touchend"].forEach((ev) =>
+  window.addEventListener(ev, () => {
+    if (!pendingPlay || !audio.src) return;
+    pendingPlay = false;
+    audio.currentTime = 0;
+    playAudio();
+  }, { capture: true }));
+
+// Tap the picture to play/pause
+out.addEventListener("click", () => {
+  if (!audio.src || pendingPlay) return;
+  audio.paused ? playAudio() : audio.pause();
+});
+
+async function playAudio(quiet = false) {
+  ensureAudioGraph();
+  // Not awaited: without a user gesture this promise can stay pending forever; play() below rejects instead
+  actx.resume().catch(() => {});
+  energyHist.length = 0;
+  try {
+    await audio.play();
+    return true;
+  } catch (e) {
+    if (!quiet) setStatus("เล่นเพลงไม่ได้: " + e.message, true);
+    return false;
+  }
+}
+
+ui.play.addEventListener("click", () => (audio.paused ? playAudio() : audio.pause()));
+audio.addEventListener("play", () => { ui.play.textContent = "⏸ หยุด"; panel.classList.add("music-on"); });
+audio.addEventListener("pause", () => {
+  ui.play.textContent = "▶ เล่น";
+  panel.classList.remove("music-on");
+  animStart = performance.now();
+});
+
+// ---------- video export ----------
+
+let recorder = null;
+
+function pickMime(withAudio) {
+  const types = withAudio
+    ? ["video/mp4;codecs=avc1,mp4a.40.2", "video/mp4", "video/webm;codecs=vp9,opus", "video/webm"]
+    : ["video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9", "video/webm"];
+  return types.find((t) => window.MediaRecorder && MediaRecorder.isTypeSupported(t));
+}
+
+function stopRecording() {
+  if (recorder && recorder.state !== "inactive") recorder.stop();
+}
+
+ui.record.addEventListener("click", async () => {
+  if (recorder) { stopRecording(); return; }
+
+  const withAudio = !!audio.src;
+  const mime = pickMime(withAudio);
+  if (!mime) { setStatus("เบราว์เซอร์นี้อัดวิดีโอไม่ได้ ลอง Chrome หรือ Edge", true); return; }
+
+  const wasMask = ui.showMask.checked;
+  ui.showMask.checked = false;
+
+  const stream = out.captureStream(30);
+  if (withAudio) recDest.stream.getAudioTracks().forEach((t) => stream.addTrack(t));
+
+  recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000 });
+  const chunks = [];
+  const started = performance.now();
+  recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+  recorder.onstop = () => {
+    const ext = mime.startsWith("video/mp4") ? "mp4" : "webm";
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(chunks, { type: mime.split(";")[0] }));
+    a.download = `funkedit.${ext}`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    ui.showMask.checked = wasMask;
+    ui.record.textContent = "อัดวิดีโอ";
+    ui.record.classList.remove("recording");
+    recorder = null;
+    if (withAudio) audio.pause();
+    setStatus(`อัดเสร็จแล้ว (${ext.toUpperCase()}, ${((performance.now() - started) / 1000).toFixed(1)} วิ)`);
+  };
+
+  ui.record.textContent = "■ หยุดอัด";
+  ui.record.classList.add("recording");
+
+  if (withAudio) {
+    // Record the song from the start; stops at the end of the track or when pressed again
+    audio.currentTime = 0;
+    await playAudio();
+    audio.addEventListener("ended", stopRecording, { once: true });
+    setStatus("กำลังอัดพร้อมเพลง… กดหยุดอัดเมื่อพอ · อย่าสลับแท็บ");
+  } else {
+    // No music: 3 full loops (a loop = left tilt + right tilt = two bounces)
+    const durMs = ui.animate.checked
+      ? (parseFloat(ui.delay.value) + parseFloat(ui.period.value) * 2 * 3) * 1000
+      : 2000;
+    animStart = performance.now();
+    setTimeout(stopRecording, durMs);
+    setStatus("กำลังอัด… อย่าสลับแท็บ");
+  }
+  recorder.start();
+  if (!ui.animate.checked) render();
+});
+
+// ---------- UI wiring ----------
+
+const bindOut = (input, outId, fmt) => {
+  const update = () => { $(outId).textContent = fmt(parseFloat(input.value)); };
+  input.addEventListener("input", () => { update(); render(); });
+  update();
+};
+bindOut(ui.scale, "scaleVal", (v) => v.toFixed(2) + "×");
+bindOut(ui.scaleMin, "scaleMinVal", (v) => v.toFixed(2) + "×");
+bindOut(ui.tilt, "tiltVal", (v) => "±" + v + "°");
+bindOut(ui.stretch, "stretchVal", (v) => "+" + v + "%");
+bindOut(ui.period, "periodVal", (v) => v.toFixed(2) + " วิ/ครั้ง");
+bindOut(ui.sens, "sensVal", (v) => String(v));
+bindOut(ui.delay, "delayVal", (v) => v.toFixed(1) + " วิ");
+bindOut(ui.feather, "featherVal", (v) => v + "%");
+
+ui.animate.addEventListener("change", () => {
+  panel.classList.toggle("no-anim", !ui.animate.checked);
+  animStart = performance.now();
+  cur = motion(performance.now());
+  render();
+});
+document.querySelectorAll("input[name=anchor], input[name=part]").forEach((r) => r.addEventListener("change", render));
+ui.showMask.addEventListener("change", render);
+
+const holdOn = (e) => { e.preventDefault(); showOriginal = true; render(); };
+const holdOff = () => { if (showOriginal) { showOriginal = false; render(); } };
+ui.compare.addEventListener("pointerdown", holdOn);
+["pointerup", "pointerleave", "pointercancel"].forEach((ev) => ui.compare.addEventListener(ev, holdOff));
+
+ui.download.addEventListener("click", () => {
+  const wasMask = ui.showMask.checked;
+  ui.showMask.checked = false;
+  render();
+  out.toBlob((blob) => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "funkedit.png";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    ui.showMask.checked = wasMask;
+    render();
+  }, "image/png");
+});
+
+const fileInput = $("file");
+$("pick").addEventListener("click", () => fileInput.click());
+$("drop").addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", () => { loadFile(fileInput.files[0]); fileInput.value = ""; });
+
+stage.addEventListener("dragover", (e) => { e.preventDefault(); stage.classList.add("dragover"); });
+stage.addEventListener("dragleave", () => stage.classList.remove("dragover"));
+stage.addEventListener("drop", (e) => {
+  e.preventDefault();
+  stage.classList.remove("dragover");
+  const file = e.dataTransfer.files[0];
+  if (file?.type.startsWith("audio/")) {
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    audioInput.files = dt.files;
+    audioInput.dispatchEvent(new Event("change"));
+  } else {
+    loadFile(file);
+  }
+});
+window.addEventListener("paste", (e) => {
+  const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith("image/"));
+  if (item) loadFile(item.getAsFile());
+});
+
+init();
+loadDefaultTrack();
+</script>
+</body>
+</html>
