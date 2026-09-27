@@ -332,20 +332,43 @@ async function init() {
 
 // ---------- processing ----------
 
-async function loadFile(file) {
-  if (!file || !file.type.startsWith("image/")) return;
-  if (!segmenter || !landmarker) { setStatus("รอโมเดลโหลดเสร็จก่อนนะ", true); return; }
+let loadSeq = 0;
 
-  const img = await createImageBitmap(file);
+async function loadFile(file) {
+  if (!file) return;
+  // Some pickers/OSes give an empty type; let the decoder decide instead of silently ignoring
+  if (file.type && !file.type.startsWith("image/")) { setStatus("ไฟล์นี้ไม่ใช่รูปภาพ", true); return; }
+  const seq = ++loadSeq;
+
+  let img;
+  try {
+    img = await createImageBitmap(file);
+  } catch (e) {
+    console.error(e);
+    setStatus("เปิดรูปนี้ไม่ได้ (ถ้าเป็น HEIC ลองแปลงเป็น JPG/PNG ก่อน)", true);
+    return;
+  }
+  if (seq !== loadSeq) { img.close?.(); return; }
+
   const k = Math.min(1, MAX_SIDE / Math.max(img.width, img.height));
   const W = Math.round(img.width * k), H = Math.round(img.height * k);
   src = makeCanvas(W, H);
   src.getContext("2d").drawImage(img, 0, 0, W, H);
   img.close?.();
 
+  faces = [];
   out.width = W; out.height = H;
   stage.classList.add("has-image", "is-busy");
   octx.drawImage(src, 0, 0);
+
+  // Show the photo right away; analysis waits for the models if they are still downloading
+  if (!segmenter || !landmarker) {
+    setStatus("กำลังโหลดโมเดล… เดี๋ยววิเคราะห์ให้อัตโนมัติ");
+    await modelsReady;
+    if (seq !== loadSeq) return;
+    if (!segmenter || !landmarker) { stage.classList.remove("is-busy"); return; } // init() already set the error
+  }
+
   setStatus("กำลังวิเคราะห์รูป…");
   await new Promise(requestAnimationFrame); // let the busy overlay paint
 
@@ -363,9 +386,12 @@ async function loadFile(file) {
   ui.compare.disabled = !ok;
   ui.record.disabled = !ok;
   animStart = performance.now();
-  if (ok) setStatus(`เจอ ${faces.length} หน้า · ขนาดรูป ${W}×${H}px`);
-  if (ok && audio.src) startMusicFromTop();
-  else if (!statusEl.classList.contains("err")) setStatus("ไม่เจอหน้าในรูปนี้ ลองรูปที่เห็นหน้าชัดกว่านี้", true);
+  if (ok) {
+    setStatus(`เจอ ${faces.length} หน้า · ขนาดรูป ${W}×${H}px`);
+    if (audio.src) startMusicFromTop();
+  } else if (!statusEl.classList.contains("err")) {
+    setStatus("ไม่เจอหน้าในรูปนี้ ลองรูปที่เห็นหน้าชัดกว่านี้", true);
+  }
   render();
 }
 
@@ -875,7 +901,7 @@ window.addEventListener("paste", (e) => {
   if (item) loadFile(item.getAsFile());
 });
 
-init();
+const modelsReady = init();
 loadDefaultTrack();
 </script>
 </body>
